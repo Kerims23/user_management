@@ -33,25 +33,24 @@ class UserBase(BaseModel):
     class Config:
         from_attributes = True
 
+
+def validate_password_complexity(password: str) -> str:
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long.")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter.")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter.")
+    if not re.search(r"\d", password):
+        raise ValueError("Password must contain at least one digit.")
+    return password
+
+
 class UserCreate(UserBase):
     email: EmailStr = Field(..., example="john.doe@example.com")
     password: str = Field(..., example="Secure*1234")
-    @validator("password")
-    def validate_password(cls, value):
-        # Length validation
-        if len(value) < 8:
-            raise ValueError("Password must be at least 8 characters long.")
-        
-        # Unique character validation
-        if not any(char in "*!@#$%^&()" for char in value):
-            raise ValueError("Password must contain at least one unique character (e.g., * or !).")
-        
-        # Integer validation
-        if not any(char.isdigit() for char in value):
-            raise ValueError("Password must contain at least one digit.")
-        
-        return value
-
+    _validate_password = validator('password', pre=True, allow_reuse=True)(validate_password_complexity)
+    
 class UserUpdate(UserBase):
     email: Optional[EmailStr] = Field(None, example="john.doe@example.com")
     nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example="john_doe123")
@@ -61,6 +60,7 @@ class UserUpdate(UserBase):
     profile_picture_url: Optional[str] = Field(None, example="https://example.com/profiles/john.jpg")
     linkedin_profile_url: Optional[str] =Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
+    is_professional: Optional[bool] = Field(default=False, example=True) #issue 5
     role: Optional[str] = Field(None, example="AUTHENTICATED")
 
     @root_validator(pre=True)
@@ -96,3 +96,4 @@ class UserListResponse(BaseModel):
     total: int = Field(..., example=100)
     page: int = Field(..., example=1)
     size: int = Field(..., example=10)
+

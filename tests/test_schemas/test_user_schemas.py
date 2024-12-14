@@ -2,7 +2,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 from datetime import datetime
-from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest
+from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest, validate_password_complexity
 
 # Fixtures for common test data
 @pytest.fixture
@@ -108,3 +108,25 @@ def test_user_base_url_invalid(url, user_base_data):
     user_base_data["profile_picture_url"] = url
     with pytest.raises(ValidationError):
         UserBase(**user_base_data)
+        
+@pytest.mark.parametrize("password, expected", [
+    # Valid passwords
+    ("Secure*1234", True),
+    ("Strong#Pass1", True),
+    ("Val1d!Pa55w0rd", True),
+    # Invalid passwords
+    ("short1!", False),  # Too short
+    ("NoDigitsHere!", False),  # No digits
+    ("nouppercase1!", False),  # No uppercase letters
+    ("NOLOWERCASE1!", False),  # No lowercase letters
+    ("1234567890", False),  # Only numbers
+    ("abcdefg!", False),  # No uppercase, short length
+    ("ABCDEFGH1!", False),  # No lowercase
+    ("P@ssword", False),  # Too short and lacks digits
+])
+def test_validate_password_complexity(password, expected):
+    if expected:
+        assert validate_password_complexity(password) == password
+    else:
+        with pytest.raises(ValueError):
+            validate_password_complexity(password)

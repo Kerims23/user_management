@@ -101,7 +101,7 @@ async def search_users(
             last_login_at=user.last_login_at,
             created_at=user.created_at,
             updated_at=user.updated_at,
-            links=create_user_links(user.id, request),
+            links=create_user_links(user.id, request)
         )
         for user in users
     ]
@@ -185,7 +185,8 @@ async def update_user(user_id: UUID, user_update: UserUpdate, request: Request, 
         linkedin_profile_url=updated_user.linkedin_profile_url,
         created_at=updated_user.created_at,
         updated_at=updated_user.updated_at,
-        links=create_user_links(updated_user.id, request)
+        links=create_user_links(updated_user.id, request),
+        is_prefessional=updated_user.is_professional #another issue #4
     )
 
 
