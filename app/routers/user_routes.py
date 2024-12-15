@@ -43,7 +43,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 settings = get_settings()
 
 
-@router.get("/users/search", response_model=UserListResponse, name="search_users", tags=["User Management Requires (Admin or Manager Roles)"])
+@router.get(
+    "/users/search",
+    response_model=UserListResponse,
+    name="search_users",
+    tags=["User Management Requires (Admin or Manager Roles)"]
+)
 async def search_users(
     column: str,
     value: str,
@@ -60,7 +65,18 @@ async def search_users(
         request: The request object, used to generate HATEOAS links.
         db: Dependency that provides an AsyncSession for database access.
     """
-    # Define allowed columns to prevent SQL injection
+    # Validate the requested column
+    column_field = validate_column(column)
+
+    # Fetch users from the database
+    users = await fetch_users(db, column_field, value)
+
+    # Map users to response model
+    return build_user_response(users, request)
+
+
+def validate_column(column: str):
+    """Validate the column name and return the corresponding SQLAlchemy field."""
     allowed_columns = {
         "nickname": User.nickname,
         "email": User.email,
@@ -70,22 +86,23 @@ async def search_users(
         "created_at": User.created_at,
         "updated_at": User.updated_at,
     }
-
-    # Validate the column
     if column not in allowed_columns:
         raise HTTPException(status_code=400, detail=f"Invalid column: {column}")
+    return allowed_columns[column]
 
-    # Build the SQLAlchemy filter dynamically
-    column_filter = allowed_columns[column].ilike(f"%{value}%")
-    query = select(User).where(column_filter)
+
+async def fetch_users(db: AsyncSession, column_field, value: str):
+    """Fetch users from the database based on the filter condition."""
+    query = select(User).where(column_field.ilike(f"%{value}%"))
     result = await db.execute(query)
     users = result.scalars().all()
-
-    # Check if users are found
     if not users:
         raise HTTPException(status_code=404, detail="No users found")
+    return users
 
-    # Map the results to the response model
+
+def build_user_response(users, request: Request) -> UserListResponse:
+    """Construct the user list response."""
     user_responses = [
         UserResponse.model_construct(
             id=user.id,
@@ -101,12 +118,11 @@ async def search_users(
             last_login_at=user.last_login_at,
             created_at=user.created_at,
             updated_at=user.updated_at,
-            links=create_user_links(user.id, request)
+            links=create_user_links(user.id, request),
         )
         for user in users
     ]
 
-    # Construct the response
     return UserListResponse(
         items=user_responses,
         total=len(user_responses),
@@ -114,6 +130,7 @@ async def search_users(
         size=len(user_responses),
         links=[],  # Include navigational links if required
     )
+
 
 
 @router.get("/users/{user_id}", response_model=UserResponse, name="get_user", tags=["User Management Requires (Admin or Manager Roles)"])
